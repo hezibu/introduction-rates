@@ -24,5 +24,5 @@ p_load(tidyverse,
 
 
 # Load s&c package:
-#install.packages("sacII_1.0.tar.gz", repos = NULL, type="source")
+install.packages("snc2022_1.0.tar.gz", repos = NULL, type="source")
 #devtools::install_github("zdk123/SpiecEasi")
