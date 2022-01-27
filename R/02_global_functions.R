@@ -1,7 +1,7 @@
 # This scripts loads the necessary libraries and functions
 
 source("R/required packages.R")
-
+library(snc2022)
 # Functions:
 
 # Functions based off of Solow & Costello, 2004:
@@ -24,7 +24,7 @@ source("R/03_precision_and_accuracy_functions.R")
 # Output: A vector of length N with yearly number of new introduced species
 
 sim <- function(N, params){
-  constant <- c()
+  constant <- 0
   lambda <- vector(mode = "numeric",length = N)
   Am = count_m(0:(N-1),params,constant) 
   Ap = rev(count_p_no_gama2(0:(N-1),params,constant))
