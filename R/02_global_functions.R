@@ -1,11 +1,7 @@
-# This scripts loads the necessary libraries and functions
-
-source("R/required packages.R")
-library(snc2022)
 # Functions:
 
 # Functions based off of Solow & Costello, 2004:
-Rcpp::sourceCpp("R/solow_costello_rcpp_functions.cpp")
+# Rcpp::sourceCpp("R/solow_costello_rcpp_functions.cpp")
 
 # Functions:
 
@@ -49,3 +45,15 @@ seq_from_center <- function(center, range, steps_from_center){
   return(sort(unique(c(first_part,second_part))))
 }
 
+# Function to summarize te simulation results given a reporting function.
+#  Input: A single element of a list, with a parameters and a simulations object
+# Output: a row of a tibble giving the real parameters and the reported values
+
+summarize_trials <- function(a_single_run, n_params, fn){
+  real_values <- a_single_run[[1]][1:n_params]
+  real_values_tbl <- bind_rows(a_single_run[[1]])
+  randomizations <- a_single_run[[2]]
+  out <- bind_rows(fn(real_values, randomizations)) %>% 
+    rename_with(.fn = function(x) str_glue("{x}_fn"))
+  return(bind_cols(real_values_tbl, out))
+}
