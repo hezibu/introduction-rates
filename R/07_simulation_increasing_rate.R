@@ -30,9 +30,9 @@ results_parts_list <- vector(mode = "list", length = length(parts_list))
 results_parts_list[[1]] <- pbapply::pbapply(parts_list$`1`, MARGIN = 1, function(row){
   sim_params <- set_params(as.numeric(row))
   
-  result <- replicate(100, expr = {
+  result <- replicate(1, expr = {
     
-    simulation <- sim(150, params = sim_params, constant = 0)
+    simulation <- sim(150, params = sim_params)
     
     # We'll use the coefficients from this model as starting parameters:
     # beta0 = intercept; beta1 = slope
@@ -43,7 +43,7 @@ results_parts_list[[1]] <- pbapply::pbapply(parts_list$`1`, MARGIN = 1, function
                           simple_model$coefficients[2],
                           0, 0, 0))
     
-    estimates <- optim(count_log_like_new, par = guess, constant = 0, 
+    estimates <- optim(count_log_like_new, par = guess, constant = 0, method = "BFGS",
                        first_record_data = simulation, hessian = TRUE)
     
     return(list(timeseries = simulation, estimates = estimates))
