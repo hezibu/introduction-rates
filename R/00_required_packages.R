@@ -1,28 +1,30 @@
-# Function for installing pacman package if it is uninstalled
-is_inst <- function(pkg) {
-  nzchar(system.file(package = pkg))
-}
-
-if (!is_inst("pacman")) {install.packages("pacman")}
-library("pacman")
-
 # Load libraries
-p_load(tidyverse,
-       pbapply,
-       optimx,
-       purrr,
-       matrixStats,
-       pracma,
-       magrittr,
-       doParallel,
-       RcppArmadillo,
-       GenSA,
-       cowplot,
-       ucminf,
-       HelpersMG)
-# sacII
+
+# When working in Linux some packages needed
+# some linux libraries. In the terminal type:
+# sudo apt-get install libcurl4-openssl-de
+# sudo apt-get install libssl-dev
+# sudo apt-get install libxml2-dev
+# apt install cmake
+
+
+library(tidyverse)
+library(pbapply)
+library(optimx)
+library(purrr)
+library(matrixStats)
+library(pracma)
+library(magrittr)
+library(doParallel)
+library(RcppArmadillo)
+library(GenSA)
+library(cowplot)
+library(ucminf)
+library(HelpersMG)
+library(future.apply)
+library(progressr)
+library(snc2022) # my package
 
 
 # Load s&c package:
-install.packages("snc2022_1.0.tar.gz", repos = NULL, type="source")
-#devtools::install_github("zdk123/SpiecEasi")
+# install.packages("snc2022_1.0.tar.gz", repos = NULL, type="source")
