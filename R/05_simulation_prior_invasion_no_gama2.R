@@ -1,7 +1,6 @@
-source(here::here("R","02_global_functions.R"))
-
+source("R/00_required_packages.R")
+# Rcpp::sourceCpp("R/01_solow_costello_cpp_functions.cpp")
 source("R/02_global_functions.R")
-Rcpp::sourceCpp("R/01_solow_costello_cpp_functions.cpp")
 
 sim_params_ts_length <- set_params(c(-1.1, 0.014, -1.46, 0.00001, 0.0000004))
 
@@ -12,8 +11,8 @@ test_tsl <- sim(N = 200, params = sim_params_ts_length)
 
 # visualize `test_tsl`:
 
-ggplot2::qplot(x = 0:199, cumsum(test_tsl), geom = "line")+
-  ggplot2::geom_line(ggplot2::aes(x= 50:199, y = cumsum(test_tsl[50:199])), color = "red")
+qplot(x = 0:199, cumsum(test_tsl), geom = "line")+
+  geom_line(aes(x= 50:199, y = cumsum(test_tsl[50:199])), color = "red")
 
 list_tsl <- list(
   beta0 = seq(-1.5,1.5, length.out = 20),
@@ -23,48 +22,23 @@ list_tsl <- list(
 
 df_tsl <- expand.grid(list_tsl)
 
-parts_list_tsl <- split(sample(seq_len(nrow(df_tsl))), 1:1000)
+parts_list_tsl <- split(sample(seq_len(nrow(df_tsl))), 1:5)
 
 parts_list_tsl <- lapply(parts_list_tsl, function(rows){
   return(df_tsl[rows,])
 })
 
+tsl_results_parts_list <- vector(mode = "list", length = length(parts_list_tsl))
 
-# 
-# # Set cluster type
-# 
-# clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-# 
-# # Create cluster
-# 
-# clust <- snow::makeCluster(getOption("cl.cores", 7), type = clusterType)
-# 
-# # Load the params, and function to the cluster
-# 
-# 
-# clusterEvalQ(clust, source("R/functions.R"))
-# clusterEvalQ(clust, source("R/simulations functions_modified.R"))
-# clusterEvalQ(clust, Rcpp::sourceCpp("R/creating_new_p.cpp"))
-# clusterExport(clust, deparse(substitute(sim_params_ts_length)), envir = environment())
+parts_list_tsl <- readRDS("Results/Prior Invasion/prior invasion parameters 28012022")
 
 
-
-# We'll create list for partial results:
-
-tsl_results_parts_list <- vector(mode = "list", length = nrow(df_tsl))
-
-
-
-library(future.apply)
 cl <- parallel::makeCluster(detectCores())
 plan(cluster, workers = cl)
-
-library(progressr)
 handlers(handler_progress(format="[:bar] :percent :eta :message"))
-
 with_progress({
-  p <- progressor(steps = nrow(df_tsl))
-  tsl_results_parts_list <-  future_apply(df_tsl, MARGIN = 1, function(row){
+  p <- progressor(along = 1:nrow(parts_list_tsl$`5`))
+  tsl_results_parts_list[[5]] <-  future_apply(parts_list_tsl$`5`, MARGIN = 1, function(row){
     
     p()
     
@@ -101,77 +75,10 @@ with_progress({
     return(list(sim_params_tsl = c(sim_params_ts_length, actual_length = actual_length), simulation = result))
   }, future.seed = NULL, future.chunk.size = 1)
   
+
 })
 
-saveRDS(tsl_results_parts_list,"Results/Time series length no gama 2/prior invasion simulation results 20012022")
-saveRDS(parts_list_tsl,"Results/Time series length no gama 2/prior invasion parameters 20012022")
+# dir.create("Results/Prior Invasion/", recursive = TRUE)
 
-
-
-
-tsl_results_parts_list <- tsl_results_parts_list[1:3]
-
-test_func_tsl <- function(list_of_results, i){
-  list_of_hessians <- map(map(list_of_results[[2]], 2), 6) # for the hessians
-  
-  list_of_trials <- lapply(1:100, function(j){
-    try(
-      100*(map(list_of_results[[2]], 2)[[j]]$par - list_of_results$sim_params_tsl[1:4])/list_of_results$sim_params_tsl[1:4],
-      silent = TRUE)
-  })
-  
-  indices <- sapply(list_of_trials,function(x) all(class(x) != "try-error"))
-  
-  list_of_trials <- list_of_trials[indices]
-  
-  if (length(list_of_trials) == 0) {
-    mean_bias <- rep(NA,4)
-    names(mean_bias) <- c("beta0_bias","beta1_bias","gama0_bias","gama1_bias")
-    mean_bias <- bind_rows(mean_bias)
-  }else{
-    mean_bias <- list_of_trials %>% bind_rows %>% colMeans() %>% bind_rows() %>% 
-      rename_with(.fn = function(x) str_glue("{x}_bias"))
-  }
-  
-  row <- bind_cols(bind_rows(list_of_results$sim_params_tsl),mean_bias)
-  
-  return(row)
-  
-}
-
-
-
-clusterExport(clust, deparse(substitute(test_func_tsl)), envir = environment())
-clusterExport(clust, deparse(substitute(calculate_percentage)), envir = environment())
-
-
-mmm <- unlist(tsl_results_parts_list, recursive = FALSE,use.names = TRUE)
-
-aaa <- pbapply::pblapply(mmm, function(row){
-  return(test_func_tsl(row, names(row)))
-})
-
-
-
-tsl_success <- bind_rows(aaa, .id = "trial") %>% 
-  dplyr::select(-c(gama0, gama1, gama2)) %>% 
-  pivot_longer(cols = c(beta0_bias, beta1_bias, gama0_bias,  gama1_bias), names_to = "parameter", values_to = "bias") %>% 
-  rename("years_cut" = years_cut.trim)
-
-
-tsl_success %>% 
-  filter(years_cut < 100) %>% 
-  ggplot()+
-  aes(x = years_cut, y = bias, group = parameter, color = parameter)+
-  stat_summary(geom = 'line')+
-  scale_color_viridis_d()+
-  facet_wrap(~parameter,scales = "free")
-
-
-this <- mmm[[1]]
-
-(this[2]) %>% class()
-
-did_optim_succeed(map(this[[2]],2)[[1]], this$sim_params_gap[1:4])
-
-
+saveRDS(tsl_results_parts_list,"Results/Prior Invasion/prior invasion simulation results 31012022")
+saveRDS(parts_list_tsl,"Results/Prior Invasion/prior invasion parameters 31012022")
