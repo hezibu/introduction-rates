@@ -12,16 +12,18 @@ list_tsl <- list(
 
 df_tsl <- expand.grid(list_tsl)
 
-parts_list_tsl <- split(sample(seq_len(nrow(df_tsl))), 1:5)
-
-parts_list_tsl <- lapply(parts_list_tsl, function(rows){
-  return(df_tsl[rows,])
-})
+parts_list_tsl <- list(
+  `1` = filter(df_tsl, length < 86),
+  `2` = filter(df_tsl, length > 86, length < 166),
+  `3` = filter(df_tsl, length > 166, length < 244),
+  `4` = filter(df_tsl, length > 244, length < 322),
+  `5` = filter(df_tsl, length > 322, length <= 400)
+)
 
 tsl_results_parts_list <- vector(mode = "list", length = length(parts_list_tsl))
 
 
-tsl_results_parts_list[[1]] <-  pbapply::pbapply(parts_list_tsl$`1`, MARGIN = 1, function(row){
+tsl_results_parts_list[[2]] <-  pbapply::pbapply(parts_list_tsl$`2`, MARGIN = 1, function(row){
   
   sim_params_ts_length[1:2] <- as.numeric(row[1:2]) 
   
@@ -50,7 +52,7 @@ tsl_results_parts_list[[1]] <-  pbapply::pbapply(parts_list_tsl$`1`, MARGIN = 1,
   return(list(sim_params_tsl = c(sim_params_ts_length, length = length), simulation = result))
 }, cl = 12)
 
-# dir.create("Results/Prior Invasion/", recursive = TRUE)
+*dir.create("Full Result List/Time Series Length/", recursive = TRUE)
 
-saveRDS(tsl_results_parts_list,"Results/Prior Invasion/prior invasion simulation results 31012022")
-saveRDS(parts_list_tsl,"Results/Prior Invasion/prior invasion parameters 31012022")
+saveRDS(tsl_results_parts_list,"Full Result List/Time Series Length/time series length simulation results 03022022")
+saveRDS(parts_list_tsl,"Full Result List/Time Series Length/time series length parameters 03022022")
