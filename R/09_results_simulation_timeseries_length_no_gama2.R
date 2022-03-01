@@ -58,31 +58,35 @@ summed_result <- list(bias = biases,
 
 # Plotting:
 
+?mean_cl_normal
+
 summed_result <- readRDS("Results/Time Series Length/tsl results February 21st")
 
 summed_result[["coverage"]] %>%
   ggplot()+
   aes(x = length, y = (beta1_fn/1000), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
-  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
-  stat_summary(fun.data = mean_se, geom = "line")+
+  stat_summary(fun.data = mean_cl_normal, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_cl_normal, geom = "line")+
   scale_color_viridis_d()+
   scale_fill_viridis_d()+
   geom_hline(yintercept = 0.95, color = "red", linetype = 2)+
   facet_wrap(~beta1)+
   labs(x = "Time Series Length", y = "Proportion of CI coverage")+
+  theme_demo+
   theme(legend.position = "none")
 
 summed_result[["ci_width"]] %>%
   ggplot()+
   aes(x = length, y = (beta1_fn), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
-  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
-  stat_summary(fun.data = mean_se, geom = "line")+
-  scale_y_log10()+
+  stat_summary(fun.data = mean_cl_normal, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_cl_normal, geom = "line")+
+  #scale_y_log10()+
   scale_color_viridis_d()+
   scale_fill_viridis_d()+
   facet_wrap(~beta1)+
-  scale_y_log10()+
+  coord_cartesian(ylim = c(0,0.01))+
   labs(x = "Length", y = "CI Width")+
+  theme_demo+
   theme(legend.position = "none")
 
 ggplot()+
@@ -116,16 +120,18 @@ summed_result[["mse"]] %>%
 
 
 summed_result[["bias"]] %>%
+  # mutate(bias_percentage = beta1_)
   ggplot()+
-  aes(x = length, y = (beta1_fn), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
-  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
-  stat_summary(fun.data = mean_se, geom = "line")+
-  coord_cartesian(ylim = c(-0.01, 0.001))+
+  aes(x = length, y = 100*beta1_fn/beta1, group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
+  stat_summary(fun.data = mean_cl_normal, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_cl_normal, geom = "line")+
+  coord_cartesian(ylim = c(-100, 1))+
   geom_hline(yintercept = 0, color = "red", linetype = 2)+
   scale_color_viridis_d()+
   scale_fill_viridis_d()+
   facet_wrap(~beta1)+
-  labs(x = "Length", y = "Bias")+
+  labs(x = "Length", y = "Bias %")+
+  theme_demo+
   theme(legend.position = "none")
 
 summed_result[["variance"]] %>%
@@ -160,6 +166,7 @@ left_join(summed_result[["ci_width"]], summed_result[["coverage"]], by = c('beta
   scale_x_log10()+
   facet_wrap(~beta1)+
   labs(x = "CI Width", y = "Proportion of CI coverage")+
+  theme_demo+
   theme(legend.position = "none")
 
 left_join(summed_result[["bias"]], summed_result[["ci_width"]], by = c('beta0', 'beta1', 'length')) %>%
