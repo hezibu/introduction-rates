@@ -52,3 +52,70 @@ summed_result <- list(bias = biases, variance = variances, ci_width = ci_widths,
 
 dir.create("Results/Prior Introduction", recursive = TRUE)
 saveRDS(summed_result, "Results/Prior Introduction/tsl results February 1st")
+
+
+# Plotting:
+
+summed_result <- readRDS("Results/Prior Introduction/tsl results February 1st")
+
+summed_result[["coverage"]] %>%
+  ggplot()+
+  aes(x = as.factor(actual_length), y = as.factor(beta1), fill = beta1_fn >= 950)+
+  geom_tile()+
+  coord_equal()+
+  facet_wrap(~beta0)
+
+summed_result[["coverage"]] %>%
+  ggplot()+
+  aes(x = actual_length, y = (beta1_fn/1000), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
+  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_se, geom = "line")+
+  scale_color_viridis_d()+
+  scale_fill_viridis_d()+
+  geom_hline(yintercept = 0.95, color = "red", linetype = 2)+
+  facet_wrap(~beta1)+
+  labs(x = "Actual introduction Length", y = "Proportion of CI coverage")+
+  theme(legend.position = "none")
+
+summed_result[["ci_width"]] %>%
+  ggplot()+
+  aes(x = actual_length, y = (beta1_fn), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
+  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_se, geom = "line")+
+  #scale_y_log10()+
+  scale_color_viridis_d()+
+  scale_fill_viridis_d()+
+  facet_wrap(~beta1,scales = "free_y")+
+  labs(x = "Actual introduction Length", y = "CI Width")+
+  theme(legend.position = "none")
+
+summed_result[["bias"]] %>%
+  ggplot()+
+  aes(x = actual_length, y = (beta1_fn), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
+  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_se, geom = "line")+
+  geom_hline(yintercept = 0, color = "red", linetype = 2)+
+  scale_color_viridis_d()+
+  scale_fill_viridis_d()+
+  facet_wrap(~beta1, scales = "free_y")+
+  labs(x = "Actual introduction Length", y = "Bias")+
+  theme(legend.position = "none")
+
+summed_result[["variance"]] %>%
+  ggplot()+
+  aes(x = actual_length, y = (beta1_fn), group = as.factor(beta1), color = as.factor(beta1), fill = as.factor(beta1))+
+  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.2)+
+  stat_summary(fun.data = mean_se, geom = "line")+
+  scale_color_viridis_d()+
+  scale_fill_viridis_d()+
+  facet_wrap(~beta1, scales = "free_y")+
+  labs(x = "Actual introduction Length", y = "Variance")+
+  theme(legend.position = "none")
+
+
+summed_result[["bias"]] %>%
+  ggplot()+
+  aes(x = as.factor(actual_length), y = as.factor(beta1), fill = beta1_fn >= 0)+
+  geom_tile()+
+  coord_equal()+
+  facet_wrap(~beta0)
