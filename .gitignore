@@ -38,6 +38,7 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# Full Results List
+Manuscript/
+Presentations/
 Full Result Lists/
 snc2022/
