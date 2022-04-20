@@ -19,15 +19,15 @@ transformed parameters{
 model{
     real It [N]; 
     real P [N];
-    real It0;
+    //real It0;
     
  //priors
-  b0 ~ normal(0, 2);
-  b1 ~ normal(0, 4);
+  b0 ~ normal(0, 0.01);
+  b1 ~ normal(0.01, 0.001);
     
     for (i in 1:N) {
-      It0 = exp(b0 + b1 * t[i]);
-      It[i] = fmax(It0 , (n_Inv[i]+dI[N]));
+      //It0 = exp(b0 + b1 * t[i]);
+      It[i] = exp(b0 + b1 * t[i]);
       //P[i] = (0.1+It[i]-n_Inv[i]) / ((0.1+It[i]-n_Inv[i])+(M-n_Nativ[i]));
       P[i] = (It[i]-n_Inv[i]) / ((It[i]-n_Inv[i])+(M-n_Nativ[i]));
       dI[i] ~ binomial( dsps[i] , P[i] );
@@ -35,26 +35,27 @@ model{
 }
 
 generated quantities{
-    real It [N]; 
-    real It0;
-    real P [N];
-    real Itot [N];
-    real log_lik [N];
-    real discov_t [N];
-    int dI_rep [N];
-    
-    for (i in 1:N) {
-      It0 = exp(b0 + b1 * t[i]);
-      It[i] = fmax(It0 , (n_Inv[i]+dI[N]));
-      //P[i] = (0.1+It[i]-n_Inv[i]) / ((0.1+It[i]-n_Inv[i])+(M-n_Nativ[i]));
-      P[i] = (It[i]-n_Inv[i]) / ((It[i]-n_Inv[i])+(M-n_Nativ[i]));
-    }
-      
-    for (i in 1:N){
-      dI_rep[i] = binomial_rng(dsps[i], P[i]);
-      discov_t[i] = sum(dI_rep[1:i]);
-      Itot[i] = n_Inv[i] + (P[i]/(1-P[i]))*(M-n_Nativ[i]);
-      log_lik[i] = binomial_lpmf(dI[i] | dsps[i], P[i]); 
-    }
-    
+    // real It [N]; 
+    // //real It0;
+    // real P [N];
+    // real Itot [N];
+    // real log_lik [N];
+    // real discov_t [N];
+    // int dI_rep [N];
+    // 
+    // for (i in 1:N) {
+    //   //It0 = exp(0 + b1 * t[i]);
+    //   It[i] = exp(b0 + b1 * t[i]);
+    //   //It[i] = fmax(It0 , (n_Inv[i]+dI[N]));
+    //   //P[i] = (0.1+It[i]-n_Inv[i]) / ((0.1+It[i]-n_Inv[i])+(M-n_Nativ[i]));
+    //   P[i] = (It[i]-n_Inv[i]) / ((It[i]-n_Inv[i])+(M-n_Nativ[i]));
+    // }
+    //   
+    // for (i in 1:N){
+    //   dI_rep[i] = binomial_rng(dsps[i], P[i]);
+    //   discov_t[i] = sum(dI_rep[1:i]);
+    //   Itot[i] = n_Inv[i] + (P[i]/(1-P[i]))*(M-n_Nativ[i]);
+    //   log_lik[i] = binomial_lpmf(dI[i] | dsps[i], P[i]); 
+    // }
+    // 
 }
