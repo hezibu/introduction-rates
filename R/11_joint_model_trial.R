@@ -8,47 +8,23 @@ library(shinystan)
 library(brms)
 library(bayesplot)
 library(mobsim)
+source("R/02_global_functions.R")
+rstan_options("auto_write" = TRUE)
+
+exp_model <- stan_model("Stan/stan_exp_model.stan", model_name = "exp_model")
 
 # Defining variables and parameters:
-time_span <- 1:150            # time series.
+time_span <- 150      # time series length.
 b0 <- 0            # parameters defining u as a function of t.
-b1 <- 0.014           # parameters defining u as a function of t.
-species_pool <- 1:200 # array with species names as integers (e.g, 1 is species a, 2 is species b, etc.) 
+b1 <- 0.02          # parameters defining u as a function of t.
+species_pool <- 1:500 # array with species names as integers (e.g, 1 is species a, 2 is species b, etc.) 
 n_enter <- NULL       # Poisson random variate, drawn from distribution with mean u, number of species entering in t
-
-# Defining functions:
-
-# function returns names of new species
-generate_introduction <- function(time_span, n_enter, species_pool){
-  
-  species_remaining <- species_pool # At the start of introduction, all species in species pool are candidates
-  new_sps <- NULL
-  out <- list()
-  
-  for (t in time_span){
-    sps_enter <- sample(species_pool, n_enter[t], replace = F)     # We sample from the entire species pool
-    new_species_id <- species_remaining %in% sps_enter             # get indices of new species in the remaining species pool
-    new_sps <- sort(c(new_sps, species_remaining[new_species_id])) # Add this t's new species to pool of already introduced 
-    species_remaining <- species_remaining[!new_species_id]        # Remove newly introduced species from remaining species pool
-    
-    out[[t]] <- list(introduced = new_sps,          # Identity of all species 
-                     n_total = length(new_sps),     # Number of introduced species so far
-                     n_new = sum(new_species_id),   # Number of introduced species in t
-                     remaining = species_remaining) # Species remaining in pool
-  }
-  
-  return(out) 
-}
 
 # Creating an introduction:
 
-u <- exp(b0 + b1*time_span)
+u <- exp(b0 + b1*seq_len(time_span))
 
-simulation_data <- tibble(time_span, u) %>% 
-  mutate(y = sapply(u, function(x) rpois(1, x)),
-         simulation = generate_introduction(time_span, y, species_pool)) %>% 
-  mutate(n_new = map_int(simulation, "n_new"),
-         n_total = map_int(simulation, "n_total"))
+simulation_data <- generate_introduction(time_span, u, species_pool)
 
 # Visualizing the introduction:
 
@@ -57,42 +33,84 @@ ggplot(simulation_data)+
   geom_point()
 
 # Simulating Discoveries:
-# Assumption: probality of sampling invasives and natives = their proportion in total species pool
+# Assumption: probability of sampling invasives and natives = their proportion in total species pool
 # Note to self: Proportion in richness, not estimated abundance...
 
-M <- 300 # Estimated number of unrecorded native species
-
+M <- 6000             # Estimated number of native species
+mean_effort <- 50    # Mean of poisson distribution - number of species sampled each sampling
 sampling_times <- 61 # Sampling effort in terms of number of sampling done throughout the time series
-sample_events <- sort(sample(time_span[-1], sampling_times-1, replace = F))
-sampling_data <- simulation_data[c(1, sample_events), ] %>% 
-  mutate(species_entered = map(simulation, "introduced")) %>% 
-  select(time_span, n_total,  species_entered)
 
-sampling_effort <- rpois(1, 15)
-discovered_natives <- NULL
-discovered_invasives <- NULL
+sampling_data <- simulate_discoveries(simulation_data, M, mean_effort, sampling_times)
 
+sampling_data %>% 
+  ggplot()  + 
+  geom_point(aes(x = time_span, y = n_total), col='grey') +
+  xlim(0, last(sampling_data$time_span)) + 
+  ylim(0,(last(sampling_data$total_new_natives)+last(sampling_data$total_new_invasives))) + 
+  ylab("No. of Species") +
+  geom_point(aes(x = time_span, y = total_new_invasives), color='red') +
+  geom_point(aes(x = time_span, y = total_new_natives), color='blue')
 
-sampling_data <- sampling_data %>% 
-  mutate(sad = map(n_total, function(n_total) {
-    sim_sad(s_pool = M + n_total, 
-            n_sim = sampling_effort, 
-            sad_type = "lnorm",
-            sad_coef = list("meanlog" = 5, "sdlog" = 0.5))
-  })) %>% 
-  mutate(prob_invasive = n_total/(M + n_total),
-         n_species_sample = map2(.x = sad, .y = prob_invasive,
-                                 .f = function(sad, prob_invasive) 
-                                   as.numeric(rmultinom(1, size = length(sad), 
-                                                        prob = c(prob_invasive, 1-prob_invasive)))))
+data_for_stan <- list(
+  M = M,                                       # Estimated number of native species
+  N = nrow(sampling_data),                     # Number of samples - number of rows for sampling data
+  dI = sampling_data$n_new_invasives,          # Number of newly discovered invasive species
+  d_Nativ = sampling_data$n_new_natives,       # Number of newly discovered native species
+  dsps =  sampling_data$n_new_species,         # Number of newly discovered species (natives + invasives)
+  t = sampling_data$time_span,                 # Sampling events time
+  n_Inv   = sampling_data$total_new_invasives, # Total number of invasives discovered
+  n_Nativ =  sampling_data$total_new_natives   # Total number of natives discovered
+)
 
-sampling_data <- cbind(sampling_data, t(data.frame(sampling_data$n_species_sample))) %>% as_tibble
+fit1.test <- sampling(object = exp_model,
+                  data = data_for_stan,
+                  chains = 3,     # number of Markov chains
+                  cores  = 3,     # number of cores   
+                  warmup = 2000,   # number of warm-up iterations per chain
+                  iter = 8000,     # total number of iterations per chain
+                  refresh = 0,    # show progress every 'refresh' iterations
+                  thin = 2,       # take sample every 2 steps in the chain
+                  control = list(adapt_delta = 0.99)
+)
 
-sampling_data <- sampling_data %>% 
-  mutate(invasives = map(`1`, function(x) sample(species_entered, x, replace = F)),
-         natives = map(`2`, function(x) sample(1:M, x, replace = F))) 
+# ALL OF THE BELOW NEED TO BE CHANGED:
 
-for (t in seq_len(sampling_times)){
-  new_species <- sampling_data$natives[t][!sampling_data$natives[t] %in% discovered_natives]
-  discovered_natives <- c(discovered_natives, sampling_data$natives[t])
-}
+fitted.data = rstan::extract(fit1.test, permuted=TRUE)
+sampling_data$av.Itot=apply(fitted.data$Itot, 2, median)
+sampling_data$av.dI=apply(fitted.data$dI_rep, 2, median)
+sampling_data$av.discov_t=apply(fitted.data$discov_t, 2, median)
+
+sampling_data$quant.01.Itot=apply(fitted.data$Itot, 2, 
+                             function (x) quantile(x, probs=c(0.01)))
+sampling_data$quant.99.Itot=apply(fitted.data$Itot, 2, 
+                             function (x) quantile(x, probs=c(0.99)))                   
+sampling_data$quant.01.dI=apply(fitted.data$dI_rep, 2, 
+                           function (x) quantile(x, probs=c(0.01)))
+sampling_data$quant.99.dI=apply(fitted.data$dI_rep, 2, 
+                           function (x) quantile(x, probs=c(0.99)))   
+sampling_data$quant.01.discov_t=apply(fitted.data$discov_t, 2, 
+                                 function (x) quantile(x, probs=c(0.01)))
+sampling_data$quant.99.discov_t=apply(fitted.data$discov_t, 2, 
+                                 function (x) quantile(x, probs=c(0.99))) 
+
+f.Itot = ggplot(data = sampling_data)  + 
+  geom_point(aes(x = time_span, y = total_new_invasives), col='black') +
+  geom_line(aes(x = time_span, y = av.Itot), col='red') +
+  xlim(1,150) #+ ylim(0,length(species_pool)+20) + ylab("Introduced Species") 
+
+f.Itot = f.Itot + geom_ribbon(data = sampling_data, 
+                              aes(x = time_span, ymin=quant.01.Itot, ymax=quant.99.Itot), 
+                              alpha=0.2, fill='red') 
+f.Itot
+
+f.discov_t = ggplot(data = sampling_data)  + 
+  geom_point(aes(x = time_span, y = total_new_invasives), col='black') +
+  geom_line(aes(x = time_span, y = av.discov_t), col='red') +
+  xlim(1,150) + ylab("Discovered Inv Species") 
+
+f.discov_t = f.discov_t + geom_ribbon(data = sampling_data, 
+                                      aes(x = time_span, ymin=quant.01.discov_t, ymax=quant.99.discov_t), 
+                                      alpha=0.2, fill='red') 
+f.discov_t
+
+shinystan::launch_shinystan(object = fit1.test)
