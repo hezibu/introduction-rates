@@ -38,7 +38,10 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
+# Individual folders/files
 Manuscript/
 Presentations/
 Full Result Lists/
 snc2022/
+brms_5PL
+Stan/*.rds
