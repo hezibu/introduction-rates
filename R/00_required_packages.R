@@ -6,7 +6,8 @@
 # sudo apt-get install libssl-dev
 # sudo apt-get install libxml2-dev
 # apt install cmake
-
+# To install a package for all users, from the root terminal (puTTY), type:
+# sudo su - -c "R -e \"install.packages('any_package', repos='https://cran.rstudio.com/')\""
 
 library(tidyverse)
 library(pbapply)
