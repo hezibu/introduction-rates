@@ -120,16 +120,27 @@ simulate_discoveries <- function(simulation_data, M, mean_effort, sampling_times
     select(time_span, n_total,  species_entered, M_unknown) %>% 
     mutate(sampling_effort = rpois(sampling_times, mean_effort))
   
+  non_sampling_years <- simulation_data[-c(1, sample_events), ] %>% 
+    mutate(M_unknown = M) %>% 
+    select(time_span, n_total,  species_entered, M_unknown) %>% 
+    mutate(sampling_effort = NA)
+  
+  sampling_data <- bind_rows(sampling_data, non_sampling_years) %>%
+    arrange(time_span)
+  
   # Step 2: Use SAD to simulate species discoveries, and use proportion of invasives
   #         for probability of discovery. 
   
   sampling_data <- sampling_data %>% 
     mutate(sad = pmap(.l = list(n_total, M_unknown, sampling_effort),
                       .f = function(n_total, M, sampling_effort) {
-                        sim_sad(s_pool = M + n_total, 
-                                n_sim = sampling_effort, 
-                                sad_type = "lnorm",
-                                sad_coef = list("meanlog" = 5, "sdlog" = 0.5))
+                        if (!is.na(sampling_effort)){
+                          sim_sad(s_pool = M + n_total, 
+                                  n_sim = sampling_effort, 
+                                  sad_type = "lnorm",
+                                  sad_coef = list("meanlog" = 5, "sdlog" = 0.5))
+                        } else {return(NA)
+                        }
                       })) %>% 
     mutate(prob_invasive = n_total/(M_unknown + n_total),
            n_species_sample = map2(.x = sad, .y = prob_invasive,
@@ -182,7 +193,7 @@ simulate_discoveries <- function(simulation_data, M, mean_effort, sampling_times
     mutate(total_new_invasives = lag(total_new_invasives),
            total_new_natives = lag(total_new_natives)) %>% 
     replace_na(list(total_new_invasives = 0, total_new_natives = 0))
-
+  
   return(sampling_data)
 }
 
