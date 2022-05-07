@@ -2,12 +2,15 @@
 
 # When working in Linux some packages needed
 # some linux libraries. In the terminal type:
-# sudo apt-get install libcurl4-openssl-de
+# sudo apt-get install build-essential
+# 
+# sudo apt-get install libcurl4-openssl-dev
 # sudo apt-get install libssl-dev
 # sudo apt-get install libxml2-dev
-# apt install cmake
+# sudo apt install cmake
 # To install a package for all users, from the root terminal (puTTY), type:
-# sudo su - -c "R -e \"install.packages('any_package', repos='https://cran.rstudio.com/')\""
+# sudo R
+# and then install.packages(...)
 
 library(tidyverse)
 library(pbapply)
