@@ -20,11 +20,11 @@ parameters {
   real b1;
 }
 
-transformed parameters {
-  vector[N] u;
-  
-  u = exp(b0 + b1*t);
-}
+// transformed parameters {
+//   vector[N] u;
+//   
+//   u = exp(b0 + b1*t);
+// }
 
 model{
   
@@ -33,7 +33,7 @@ model{
   
   //priors
   b0 ~ normal(0, 1);
-  b1 ~ normal(0, 0.02);
+  b1 ~ normal(0, 0.01);
   
   if (!posterior_predictive) {
     It = cumulative_sum(exp(b0 + b1 * t));
@@ -43,16 +43,16 @@ model{
   
 }
 
-generated quantities{
-  vector[N] It;
-  vector[N] P;
-  vector[N] invasives;
-  
-  if (!posterior_predictive) {
-    It = cumulative_sum(exp(b0 + b1 * t));
-    P = (It - n_Inv)./((It - n_Inv) + deltaMt);
-    for (i in 1:N){
-      invasives[i] = binomial_rng(dsps[i], P[i]);
-    }
-  }
-}
+// generated quantities{
+//   vector[N] It;
+//   vector[N] P;
+//   vector[N] invasives;
+//   
+//   if (!posterior_predictive) {
+//     It = cumulative_sum(exp(b0 + b1 * t));
+//     P = (It - n_Inv)./((It - n_Inv) + deltaMt);
+//     for (i in 1:N){
+//       invasives[i] = binomial_rng(dsps[i], P[i]);
+//     }
+//   }
+// }
