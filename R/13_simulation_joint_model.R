@@ -1,41 +1,48 @@
 # Loading libraries:
 library(tidyverse)
-library(rstan)
-library(loo)
-library(shinystan)
-library(brms)
-library(bayesplot)
 library(mobsim)
-library(snc2022)
 library(cmdstanr)
-source("R/02_global_functions.R")
+source("/home/hezi/introduction-rates/R/02_global_functions.R")
+# cmdstanr::install_cmdstan()
+
+# Creating a folder on the NMVe drive(s):
+if (!file.exists("/data_1/Stan_csv_files/"))
+  dir.create("/data_1/Stan_csv_files/")
+if (!file.exists("/data_2/Stan_csv_files/"))
+  dir.create("/data_2/Stan_csv_files/")
 
 # loading the model:
 
-mod <- cmdstan_model("Stan/stan_exp_improved.stan")
+mod <- cmdstan_model("/home/hezi/introduction-rates/Stan/stan_exp_improved.stan")
 
 # simulation: increasing parts:
 
+replicates_per_parameters <- 1000
+
 list_params <- list(
-  replicate = 1:3,
-  beta50 = seq(-1.5,1.5, length.out = 3),
-  beta1 = c(0, 0.01, 0.02)
+  replicat = 1:replicates_per_parameters,
+  beta0 = seq(-1.5,1.5, length.out = 7),
+  beta1 = c(0, 0.0025, 0.005, 0.0075, 0.01, 0.0125, 0.015)
 )
 
 df_params <- expand.grid(list_params)
 
-
-replicates_per_parameters <- 1000
-
 results <- vector(mode = "list", length = nrow(df_params))
 
+
+
 library(future)
+library(future.apply)
 library(progressr)
 handlers("txtprogressbar")
-plan(multisession(workers = 12))
+
+plan("multicore", workers = 32)
+
+cli::cli_alert_success("So far, so good... Starting the simulations.")
+
 
 with_progress({
-  p <- progressor(along = 1:(nrow(df_params)))
+  p <- progressor(along = 1:nrow(df_params))
   results <- future.apply::future_apply(df_params, MARGIN = 1, FUN = function(row) {
     
     # Defining variables and parameters:
@@ -64,6 +71,7 @@ with_progress({
     sampling_data <- simulate_discoveries(simulation_data, M, mean_effort, sampling_times)
     
     data_for_stan <- list(
+      posterior_predictive = 0,                    # To sample from posterior
       M = M,                                       # Estimated number of native species
       N = nrow(sampling_data),                     # Number of samples - number of rows for sampling data
       dI = sampling_data$n_new_invasives,          # Number of newly discovered invasive species
@@ -74,16 +82,36 @@ with_progress({
       n_Nativ =  sampling_data$total_new_natives   # Total number of natives discovered
     )
     
-    data_for_stan$posterior_predictive <- 0
-    samples <- mod$sample(
-      data = data_for_stan,
-      chains = 3,     # number of Markov chains
-      parallel_chains = 3,     # number of cores
-      refresh = 0, iter_warmup = 2000, iter_sampling = 8000,
-      show_messages = FALSE)
+    json_file <- tempfile(fileext = ".json", tmpdir = "/json_files")
+    write_stan_json(data_for_stan, json_file)
+    
+    # sample between data and data_2 for the Stan output csv
+    
+    stan_output_file <- sample(x = c("/data_1/Stan_csv_files/",
+                                     "/data_2/Stan_csv_files/"),
+                               size = 1)
+    
+    samples <- suppressMessages(
+      mod$sample(
+        data = json_file,
+        chains = 3,         # number of Markov chains
+        parallel_chains = 3,# number of cores
+        refresh = 0, iter_warmup = 2000, iter_sampling = 8000,
+        show_messages = FALSE, output_dir = stan_output_file)
+    )
+    
+    summary <- samples$summary()
+    
+    # call_csv_files <- list(draws = samples$draws(),
+    #                        diagnostics = samples$sampler_diagnostics())
     
     p(sprintf("row=%g", row))
     
-    return(list(sim_params = row, sampling_simulation = sampling_data, stan_samples = samples))
+    
+    return(list(sim_params = row, sampling_simulation = sampling_data, stan_samples = summary))
   }, future.seed = TRUE)
 })
+
+cli::cli_alert_success("Done, now saving RDS file..")
+saveRDS("saving", "/data_list/success.RDS")
+saveRDS(results, "/data_list/joint_run.RDS")
