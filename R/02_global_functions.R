@@ -13,7 +13,7 @@ set_params <- function(numeric_vector,parameters = c("beta0","beta1","gama0","ga
 }
 
 # Load functions for precision and accuracy reporting:
-source("R/03_precision_and_accuracy_functions.R")
+source("/home/hezi/introduction-rates/R/03_precision_and_accuracy_functions.R")
 
 # Function to create a Solow and Costello time series simulation.
 #  Input: N- number of years and simulation parameters.
