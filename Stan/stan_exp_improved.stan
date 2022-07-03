@@ -16,7 +16,6 @@ transformed data {
 }
 
 parameters {
-  real b0;
   real b1;
 }
 
@@ -32,11 +31,10 @@ model{
   vector[N] P;
   
   //priors
-  b0 ~ normal(0, 1);
   b1 ~ normal(0, 0.01);
   
   if (!posterior_predictive) {
-    It = cumulative_sum(exp(b0 + b1 * t));
+    It = cumulative_sum(exp(b1 * t));
     P = (It - n_Inv)./((It - n_Inv) + deltaMt);
     dI ~ binomial(dsps, P);
   }
